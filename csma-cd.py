@@ -10,15 +10,15 @@ class Transmissor(threading.Thread):
         super().__init__()
         self.id = id
         self.tentativas = 0
+        self.sucesso = False
 
     def run(self):
         global canal_ocupado_por
 
-        while self.tentativas < 10:
+        while self.tentativas < 10 and not self.sucesso:
             print(f"[{self.id}] Verificando o meio...")
-            time.sleep(0.02)  # Curto tempo de "sensing"
+            time.sleep(0.02) #sensing
 
-            # ETAPA 1: Verifica o canal (SEM LOCK) — proposital
             if len(canal_ocupado_por) == 0:
                 print(f"[{self.id}] Meio parece livre, id [{self.id}] tentando transmitir...")
             else:
@@ -26,25 +26,25 @@ class Transmissor(threading.Thread):
                 self.backoff()
                 continue
 
-            # ETAPA 2: Agora tenta entrar no canal (com lock, simula competição)
             with canal_lock:
                 canal_ocupado_por.append(self.id)
 
-            # Simula tempo de transmissão (tempo para permitir que outros entrem também)
+            # simula tempo de transmissao
             time.sleep(0.2)
 
             with canal_lock:
                 if len(canal_ocupado_por) > 1:
                     print(f"[{self.id}] !!! Colisão detectada com transmissores {canal_ocupado_por}!")
                     self.send_jam_signal()
+                    canal_ocupado_por.clear()
                     self.backoff()
                 else:
                     print(f"[{self.id}] --- Transmissão concluída com sucesso.")
+                    canal_ocupado_por.clear()
+                    self.sucesso = True
 
-                canal_ocupado_por.clear()
-
-            break  # Sucesso ou colisão tratada
-
+        if not self.sucesso:
+                    print(f"[{self.id} XXX Falhou após 10 tentativas. ID[{self.id}] Desistiu.]")
             
     def send_jam_signal(self):
         print(f"[{self.id}] === Enviando jam signal...")
@@ -62,7 +62,7 @@ transmissores = [Transmissor(i) for i in range(1, 6)]
 
 for t in transmissores:
         t.start()
-        time.sleep(0.00001)  # Pequeno intervalo entre inícios, aumenta chance de colisão
+        time.sleep(0.000001)  # quanto menor o intervalo entre os inicios, maior a chance de colisão
 
 for t in transmissores:
         t.join()
